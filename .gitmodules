@@ -1,3 +1,7 @@
 [submodule "googletest"]
 	path = src/submodules/googletest
 	url = https://github.com/google/googletest
+
+[submodule "MessagePack"]
+	path = src/submodules/MessagePack
+	url = https://github.com/pranavkm/MessagePack-CSharp
