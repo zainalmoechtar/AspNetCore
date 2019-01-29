@@ -1,8 +1,16 @@
 <Project>
 
-  <PropertyGroup>
-    <CodeSignDependsOn>$(CodeSignDependsOn);CollectFileSignInfo</CodeSignDependsOn>
-  </PropertyGroup>
+  <Target Name="CollectVSIX">
+    <ItemGroup>
+      <FilesToSign Include="$(VSIXPath)\*.vsix" Certificate="VsixSHA2" />
+      <FileNamesToSign Include="Microsoft.AspNetCore.Blazor.Templates.0.8.0-preview-19075-0444.nupkg" CertificateName="NuGet" />
+    </ItemGroup>
+
+    <Error Text="No value set for VSIXPath" Condition="'$(VSIXPath)' == '' " />
+    <Error Text="No vsix found at $(VSIXPath)" Condition="@(FilesToSign->Count()) == 0" />
+  </Target>
+
+  <Target Name="SignVSIX" DependsOnTargets="CollectVSIX;CodeSign" />
 
   <Target Name="CollectFileSignInfo">
     <PropertyGroup>
@@ -33,3 +41,4 @@
     </ItemGroup>
   </Target>
 </Project>
+
