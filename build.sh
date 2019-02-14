@@ -20,7 +20,7 @@ channel='master'
 tools_source='https://aspnetcore.blob.core.windows.net/buildtools'
 target_os_name=''
 ci=false
-run_restore=true
+run_restore=''
 run_build=true
 run_pack=false
 run_tests=false
@@ -188,7 +188,7 @@ while [[ $# -gt 0 ]]; do
         --no-build)
             run_build=false
             # --no-build implies --no-restore
-            run_restore=false
+            [ -z "$run_restore" ] && run_restore=false
             ;;
         --pack|-[Pp]ack)
             run_pack=true
@@ -304,6 +304,9 @@ fi
 [ ! -z "$build_nodejs" ] && msbuild_args[${#msbuild_args[*]}]="-p:BuildNodeJS=$build_nodejs"
 [ ! -z "$build_managed" ] && msbuild_args[${#msbuild_args[*]}]="-p:BuildManaged=$build_managed"
 
+# Run restore by default unless --no-restore or --no-build was specified.
+[ -z "$run_restore" ] && run_restore=true
+
 msbuild_args[${#msbuild_args[*]}]="-p:_RunRestore=$run_restore"
 msbuild_args[${#msbuild_args[*]}]="-p:_RunBuild=$run_build"
 msbuild_args[${#msbuild_args[*]}]="-p:_RunPack=$run_pack"
@@ -315,6 +318,7 @@ msbuild_args[${#msbuild_args[*]}]="-p:TargetOsName=$target_os_name"
 # Disable downloading ref assemblies as a tarball. Use netfx refs from the Microsoft.NETFramework.ReferenceAssemblies NuGet package instead.
 [ -z "${KOREBUILD_SKIP_INSTALL_NETFX:-}" ] && KOREBUILD_SKIP_INSTALL_NETFX=1
 
+export KOREBUILD_KEEPGLOBALJSON=1
 set_korebuildsettings "$tools_source" "$DOTNET_HOME" "$DIR" "$config_file" "$ci"
 
 # This incantation avoids unbound variable issues if msbuild_args is empty

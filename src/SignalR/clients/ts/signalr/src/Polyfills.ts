@@ -3,9 +3,8 @@
 
 // Not exported from index
 
-export interface EventSourceConstructor {
-    new(url: string, eventSourceInitDict?: EventSourceInit): EventSource;
-}
+export type EventSourceConstructor
+    = new(url: string, eventSourceInitDict?: EventSourceInit) => EventSource;
 
 export interface WebSocketConstructor {
     new(url: string, protocols?: string | string[], options?: any): WebSocket;
