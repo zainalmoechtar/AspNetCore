@@ -60,4 +60,4 @@ export DOTNET_CLI_HOME="$HELIX_CORRELATION_PAYLOAD/home"
 
 export helix="true"
 
-$HELIX_CORRELATION_PAYLOAD/sdk/dotnet vstest $1 --logger:trx
+$HELIX_CORRELATION_PAYLOAD/sdk/dotnet vstest $1 --logger:trx;LogFileName=test-results.xml --logger:console;verbosity=normal

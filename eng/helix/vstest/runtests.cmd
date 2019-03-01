@@ -15,6 +15,6 @@ powershell.exe -NoProfile -ExecutionPolicy unrestricted -Command "[Net.ServicePo
 
 set HELIX=true
 
-%DOTNET_ROOT%\dotnet vstest %target% --logger:trx --logger:console;verbosity=normal
+%DOTNET_ROOT%\dotnet vstest %target% --logger:trx;LogFileName=test-results.xml --logger:console;verbosity=normal
 
 
