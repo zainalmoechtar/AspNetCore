@@ -10,11 +10,11 @@ namespace signalr
     class websocket_client
     {
     public:
-        virtual pplx::task<void> connect(const std::string& url) = 0;
+        virtual void connect(const std::string& url, const std::function<void(const std::exception_ptr&)>& completion_callback) = 0;
 
-        virtual pplx::task<void> send(const std::string& message) = 0;
+        virtual void send(const std::string& message, const std::function<void(const std::exception_ptr&)>& completion_callback) = 0;
 
-        virtual pplx::task<std::string> receive() = 0;
+        virtual void receive(const std::function<void(const std::exception_ptr&, const std::string&)>& completion_callback) = 0;
 
         virtual pplx::task<void> close() = 0;
 

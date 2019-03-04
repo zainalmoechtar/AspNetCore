@@ -78,14 +78,19 @@ namespace signalr
 
             auto transport = shared_from_this();
 
-            websocket_client->connect(url)
-                .then([transport, completion_callback, receive_loop_cts](pplx::task<void> connect_task)
+            websocket_client->connect(url, [transport, completion_callback, receive_loop_cts](const std::exception_ptr& exception)
                 {
                     try
                     {
-                        connect_task.get();
-                        transport->receive_loop(receive_loop_cts);
-                        completion_callback(nullptr);
+                        if (exception == nullptr)
+                        {
+                            transport->receive_loop(receive_loop_cts);
+                            completion_callback(nullptr);
+                        }
+                        else
+                        {
+                            std::rethrow_exception(exception);
+                        }
                     }
                     catch (const std::exception &e)
                     {
@@ -106,18 +111,9 @@ namespace signalr
     void websocket_transport::send(const std::string &data, const std::function<void(const std::exception_ptr&)>& completion_callback)
     {
         // send will return a faulted task if client has disconnected
-        safe_get_websocket_client()->send(data)
-            .then([completion_callback](pplx::task<void> task)
+        safe_get_websocket_client()->send(data, [completion_callback](const std::exception_ptr& exception)
             {
-                try
-                {
-                    task.get();
-                    completion_callback(nullptr);
-                }
-                catch(const std::exception& e)
-                {
-                    completion_callback(std::make_exception_ptr(e));
-                }
+                completion_callback(exception);
             });
     }
 
@@ -177,31 +173,17 @@ namespace signalr
 
         auto websocket_client = this_transport->safe_get_websocket_client();
 
-        websocket_client->receive()
-            // There are two cases when we exit the loop. The first case is implicit - we pass the cancellation_token
-            // to `then` (note this is after the lambda body) and if the token is cancelled the continuation will not
-            // run at all. The second - explicit - case happens if the token gets cancelled after the continuation has
-            // been started in which case we just stop the loop by not scheduling another receive task.
-            .then([weak_transport, cts](std::string message)
+        // There are two cases when we exit the loop. The first case is implicit - we pass the cancellation_token
+        // to `then` (note this is after the lambda body) and if the token is cancelled the continuation will not
+        // run at all. The second - explicit - case happens if the token gets cancelled after the continuation has
+        // been started in which case we just stop the loop by not scheduling another receive task.
+        websocket_client->receive([weak_transport, cts, logger, websocket_client](const std::exception_ptr & exception, const std::string & message)
+        {
+            if (exception != nullptr)
             {
-                auto transport = weak_transport.lock();
-                if (transport)
-                {
-                    transport->process_response(message);
-
-                    if (!cts.get_token().is_canceled())
-                    {
-                        transport->receive_loop(cts);
-                    }
-                }
-            }, cts.get_token())
-            // this continuation is used to observe exceptions from the previous tasks. It will run always - even if one of
-            // the previous continuations throws or was not scheduled due to the cancellation token being set to cancelled
-            .then([weak_transport, logger, websocket_client, cts](pplx::task<void> task)
-            mutable {
                 try
                 {
-                    task.get();
+                    std::rethrow_exception(exception);
                 }
                 catch (const pplx::task_canceled&)
                 {
@@ -210,7 +192,7 @@ namespace signalr
                     logger.log(trace_level::info,
                         std::string("[websocket transport] receive task canceled."));
                 }
-                catch (const std::exception& e)
+                catch (const std::exception & e)
                 {
                     cts.cancel();
 
@@ -253,7 +235,19 @@ namespace signalr
                         transport->error(signalr_exception("unknown error"));
                     }
                 }
-            });
+            }
+
+            auto transport = weak_transport.lock();
+            if (transport)
+            {
+                transport->process_response(message);
+
+                if (!cts.get_token().is_canceled())
+                {
+                    transport->receive_loop(cts);
+                }
+            }
+        });
     }
 
     std::shared_ptr<websocket_client> websocket_transport::safe_get_websocket_client()

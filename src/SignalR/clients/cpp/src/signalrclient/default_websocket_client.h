@@ -14,11 +14,11 @@ namespace signalr
     public:
         explicit default_websocket_client(const signalr_client_config& signalr_client_config = signalr_client_config{}) noexcept;
 
-        pplx::task<void> connect(const std::string& url) override;
+        void connect(const std::string& url, const std::function<void(const std::exception_ptr&)>& completion_callback) override;
 
-        pplx::task<void> send(const std::string& message) override;
+        void send(const std::string& message, const std::function<void(const std::exception_ptr&)>& completion_callback) override;
 
-        pplx::task<std::string> receive() override;
+        void receive(const std::function<void(const std::exception_ptr&, const std::string&)>& completion_callback) override;
 
         pplx::task<void> close() override;
 
