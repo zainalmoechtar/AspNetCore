@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include "pplx/pplxtasks.h"
 #include "signalrclient/transport_type.h"
 #include "logger.h"
 
@@ -12,11 +11,11 @@ namespace signalr
     class transport
     {
     public:
-        virtual pplx::task<void> connect(const std::string &url) = 0;
+        virtual void connect(const std::string &url, const std::function<void(const std::exception_ptr&)>& completion_callback) = 0;
 
-        virtual pplx::task<void> send(const std::string &data) = 0;
+        virtual void send(const std::string &data, const std::function<void(const std::exception_ptr&)>& completion_callback) = 0;
 
-        virtual pplx::task<void> disconnect() = 0;
+        virtual void disconnect(const std::function<void(const std::exception_ptr&)>& completion_callback) = 0;
 
         virtual transport_type get_transport_type() const = 0;
 

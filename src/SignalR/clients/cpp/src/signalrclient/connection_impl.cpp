@@ -300,13 +300,18 @@ namespace signalr
         auto query_string = "id=" + m_connection_id;
         auto connect_url = url_builder::build_connect(url, transport->get_transport_type(), query_string);
 
-        transport->connect(connect_url)
-            .then([transport, connect_request_tce, logger](pplx::task<void> connect_task)
+        transport->connect(connect_url, [transport, connect_request_tce, logger](const std::exception_ptr& connect_exception)
             mutable {
                 try
                 {
-                    connect_task.get();
-                    connect_request_tce.set();
+                    if (connect_exception == nullptr)
+                    {
+                        connect_request_tce.set();
+                    }
+                    else
+                    {
+                        std::rethrow_exception(connect_exception);
+                    }
                 }
                 catch (const std::exception& e)
                 {
@@ -368,12 +373,17 @@ namespace signalr
 
         logger.log(trace_level::info, std::string("sending data: ").append(data));
 
-        return transport->send(data)
-            .then([logger](pplx::task<void> send_task)
+        pplx::task_completion_event<void> event;
+
+        transport->send(data, [event, logger](const std::exception_ptr& send_task)
             mutable {
                 try
                 {
-                    send_task.get();
+                    if (send_task != nullptr)
+                    {
+                        std::rethrow_exception(send_task);
+                    }
+                    event.set();
                 }
                 catch (const std::exception &e)
                 {
@@ -382,9 +392,11 @@ namespace signalr
                         std::string("error sending data: ")
                         .append(e.what()));
 
-                    throw;
+                    event.set_exception(e);
                 }
             });
+
+        return pplx::create_task(event);
     }
 
     pplx::task<void> connection_impl::stop()
@@ -471,7 +483,20 @@ namespace signalr
             change_state(connection_state::disconnecting);
         }
 
-        return m_transport->disconnect();
+        pplx::task_completion_event<void> event;
+        m_transport->disconnect([event](const std::exception_ptr& e)
+        {
+            if (e == nullptr)
+            {
+                event.set();
+            }
+            else
+            {
+                event.set_exception(e);
+            }
+        });
+
+        return pplx::create_task(event);
     }
 
     connection_state connection_impl::get_connection_state() const noexcept

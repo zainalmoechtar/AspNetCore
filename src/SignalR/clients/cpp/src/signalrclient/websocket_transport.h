@@ -25,11 +25,11 @@ namespace signalr
 
         websocket_transport& operator=(const websocket_transport&) = delete;
 
-        pplx::task<void> connect(const std::string& url) override;
+        void connect(const std::string &url, const std::function<void(const std::exception_ptr&)>& completion_callback) override;
 
-        pplx::task<void> send(const std::string &data) override;
+        void send(const std::string &data, const std::function<void(const std::exception_ptr&)>& completion_callback) override;
 
-        pplx::task<void> disconnect() override;
+        void disconnect(const std::function<void(const std::exception_ptr&)>& completion_callback) override;
 
         transport_type get_transport_type() const noexcept override;
 

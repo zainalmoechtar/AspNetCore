@@ -5,6 +5,7 @@
 #include "websocket_transport.h"
 #include "logger.h"
 #include "signalrclient/signalr_exception.h"
+#include <future>
 
 namespace signalr
 {
@@ -30,7 +31,14 @@ namespace signalr
     {
         try
         {
-            disconnect().get();
+            auto p = std::shared_ptr<std::promise<void>>(new std::promise<void>());
+            auto fut = p->get_future();
+            disconnect([p](const std::exception_ptr&) mutable
+            {
+                p->set_value();
+            });
+
+            fut.get();
         }
         catch (...) // must not throw from the destructor
         {}
@@ -41,7 +49,7 @@ namespace signalr
         return transport_type::websockets;
     }
 
-    pplx::task<void> websocket_transport::connect(const std::string& url)
+    void websocket_transport::connect(const std::string &url, const std::function<void(const std::exception_ptr&)>& completion_callback)
     {
         web::uri uri(utility::conversions::to_string_t(url));
         _ASSERTE(uri.scheme() == _XPLATSTR("ws") || uri.scheme() == _XPLATSTR("wss"));
@@ -71,13 +79,13 @@ namespace signalr
             auto transport = shared_from_this();
 
             websocket_client->connect(url)
-                .then([transport, connect_tce, receive_loop_cts](pplx::task<void> connect_task)
+                .then([transport, completion_callback, receive_loop_cts](pplx::task<void> connect_task)
                 {
                     try
                     {
                         connect_task.get();
                         transport->receive_loop(receive_loop_cts);
-                        connect_tce.set();
+                        completion_callback(nullptr);
                     }
                     catch (const std::exception &e)
                     {
@@ -87,23 +95,33 @@ namespace signalr
                             .append(e.what()));
 
                         receive_loop_cts.cancel();
-                        connect_tce.set_exception(std::current_exception());
+                        completion_callback(std::current_exception());
                     }
                 });
 
             m_receive_loop_cts = receive_loop_cts;
-
-            return pplx::create_task(connect_tce);
         }
     }
 
-    pplx::task<void> websocket_transport::send(const std::string &data)
+    void websocket_transport::send(const std::string &data, const std::function<void(const std::exception_ptr&)>& completion_callback)
     {
         // send will return a faulted task if client has disconnected
-        return safe_get_websocket_client()->send(data);
+        safe_get_websocket_client()->send(data)
+            .then([completion_callback](pplx::task<void> task)
+            {
+                try
+                {
+                    task.get();
+                    completion_callback(nullptr);
+                }
+                catch(const std::exception& e)
+                {
+                    completion_callback(std::make_exception_ptr(e));
+                }
+            });
     }
 
-    pplx::task<void> websocket_transport::disconnect()
+    void websocket_transport::disconnect(const std::function<void(const std::exception_ptr&)>& completion_callback)
     {
         std::shared_ptr<websocket_client> websocket_client = nullptr;
 
@@ -112,7 +130,8 @@ namespace signalr
 
             if (m_receive_loop_cts.get_token().is_canceled())
             {
-                return pplx::task_from_result();
+                completion_callback(nullptr);
+                return;
             }
 
             m_receive_loop_cts.cancel();
@@ -122,12 +141,13 @@ namespace signalr
 
         auto logger = m_logger;
 
-        return websocket_client->close()
-            .then([logger](pplx::task<void> close_task)
+        websocket_client->close()
+            .then([logger, completion_callback](pplx::task<void> close_task)
             mutable {
                 try
                 {
                     close_task.get();
+                    completion_callback(nullptr);
                 }
                 catch (const std::exception &e)
                 {
@@ -135,6 +155,8 @@ namespace signalr
                         trace_level::errors,
                         std::string("[websocket transport] exception when closing websocket: ")
                         .append(e.what()));
+
+                    completion_callback(std::make_exception_ptr(e));
                 }
             });
     }
