@@ -22,6 +22,7 @@
     <EnableXUnitReporter>true</EnableXUnitReporter>
     <IsExternal>true</IsExternal>
     <Creator>aspnetcore</Creator>
+    <SkipInvalidConfigurations>true</SkipInvalidConfigurations>
   </PropertyGroup>
 
   <Target Name="Gather" BeforeTargets="Build">
