@@ -25,4 +25,10 @@ if %errorlevel% equ 0 (
 
 %DOTNET_ROOT%\dotnet vstest %target% --logger:trx;LogFileName=test-results.xml --logger:console;verbosity=normal
 
+set _ERRORLEVEL=%ERRORLEVEL%
 
+rem Normalize test result file name
+
+ren TestResults\test-results*.xml test-results.xml
+
+exit /b %_ERRORLEVEL%

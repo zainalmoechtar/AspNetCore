@@ -68,3 +68,11 @@ if grep -q "Exception thrown" discovered.txt; then
 fi
 
 $HELIX_CORRELATION_PAYLOAD/sdk/dotnet vstest $1 '--logger:trx;LogFileName=test-results.xml' '--logger:console;verbosity=normal'
+
+test_exit_code=$?
+
+# Normalize test result file name
+
+mv TestResults/test-results*.xml test-results.xml
+
+exit "$test_exit_code"
