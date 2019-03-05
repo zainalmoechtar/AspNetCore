@@ -34,7 +34,7 @@ TEST(connection_impl_connection_state, initial_connection_state_is_disconnected)
 TEST(connection_impl_start, cannot_start_non_disconnected_exception)
 {
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)>& callback) { callback(nullptr, "{ }\x1e"); });
     auto connection = create_connection(websocket_client);
 
     connection->start().wait();
@@ -55,11 +55,11 @@ TEST(connection_impl_start, connection_state_is_connecting_when_connection_is_be
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_exception<std::string>(std::runtime_error("should not be invoked")); },
-        /* send function */ [](const std::string){ return pplx::task_from_exception<void>(std::runtime_error("should not be invoked"));  },
-        /* connect function */[](const std::string&)
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)>& callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked")), ""); },
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)> & callback){ callback(std::make_exception_ptr(std::runtime_error("should not be invoked")));  },
+        /* connect function */[](const std::string &, const std::function<void(const std::exception_ptr&)> & callback)
         {
-            return pplx::task_from_exception<void>(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed")));
+            callback(std::make_exception_ptr(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed"))));
         });
 
     auto connection = create_connection(websocket_client, writer, trace_level::errors);
@@ -84,7 +84,7 @@ TEST(connection_impl_start, connection_state_is_connecting_when_connection_is_be
 TEST(connection_impl_start, connection_state_is_connected_when_connection_established_succesfully)
 {
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)>& callback) { callback(nullptr, "{ }\x1e"); });
     auto connection = create_connection(websocket_client);
     connection->start().get();
     ASSERT_EQ(connection->get_connection_state(), connection_state::connected);
@@ -116,7 +116,7 @@ TEST(connection_impl_start, throws_for_invalid_uri)
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, "{ }\x1e"); });
 
     auto connection = connection_impl::create(":1\t ä bad_uri&a=b", trace_level::errors, writer, create_test_web_request_factory(), std::make_unique<test_transport_factory>(websocket_client));
 
@@ -139,12 +139,12 @@ TEST(connection_impl_start, start_sets_id_query_string)
     std::string query_string;
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_exception<std::string>(std::runtime_error("should not be invoked")); },
-        /* send function */ [](const std::string&) { return pplx::task_from_exception<void>(std::runtime_error("should not be invoked"));  },
-        /* connect function */[&query_string](const std::string& url)
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked")), ""); },
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)> & callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked")));  },
+        /* connect function */[&query_string](const std::string& url, const std::function<void(const std::exception_ptr&)> & callback)
     {
         query_string = utility::conversions::to_utf8string(url.substr(url.find('?') + 1));
-        return pplx::task_from_exception<void>(web::websockets::client::websocket_exception("connecting failed"));
+        callback(std::make_exception_ptr(web::websockets::client::websocket_exception("connecting failed")));
     });
 
     auto connection = connection_impl::create(create_uri(""), trace_level::errors, writer, create_test_web_request_factory(), std::make_unique<test_transport_factory>(websocket_client));
@@ -166,12 +166,12 @@ TEST(connection_impl_start, start_appends_id_query_string)
     std::string query_string;
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_exception<std::string>(std::runtime_error("should not be invoked")); },
-        /* send function */ [](const std::string) { return pplx::task_from_exception<void>(std::runtime_error("should not be invoked"));  },
-        /* connect function */[&query_string](const std::string& url)
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked")), ""); },
+        /* send function */ [](const std::string&, const std::function<void(const std::exception_ptr&)> & callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked"))); },
+        /* connect function */[&query_string](const std::string& url, const std::function<void(const std::exception_ptr&)> & callback)
     {
         query_string = utility::conversions::to_utf8string(url.substr(url.find('?') + 1));
-        return pplx::task_from_exception<void>(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed")));
+        callback(std::make_exception_ptr(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed"))));
     });
 
     auto connection = connection_impl::create(create_uri("a=b&c=d"), trace_level::errors, writer, create_test_web_request_factory(), std::make_unique<test_transport_factory>(websocket_client));
@@ -242,11 +242,11 @@ TEST(connection_impl_start, start_fails_if_transport_connect_throws)
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_exception<std::string>(std::runtime_error("should not be invoked")); },
-        /* send function */ [](const std::string){ return pplx::task_from_exception<void>(std::runtime_error("should not be invoked"));  },
-        /* connect function */[](const std::string&)
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked")), ""); },
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)> & callback){ callback(std::make_exception_ptr(std::runtime_error("should not be invoked")));  },
+        /* connect function */[](const std::string&, const std::function<void(const std::exception_ptr&)> & callback)
         {
-            return pplx::task_from_exception<void>(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed")));
+            callback(std::make_exception_ptr(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed"))));
         });
 
     auto connection = create_connection(websocket_client, writer, trace_level::errors);
@@ -274,10 +274,10 @@ TEST(connection_impl_send, send_fails_if_transport_fails_when_receiving_messages
 {
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
 
-    auto websocket_client = create_test_websocket_client([]() { return pplx::task_from_result(std::string("")); },
-        /* send function */ [](const std::string &)
+    auto websocket_client = create_test_websocket_client([](const std::function<void(const std::exception_ptr&, const std::string&)>& callback) { callback(nullptr, ""); },
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)>& callback)
         {
-            return pplx::task_from_exception<void>(std::runtime_error("send error"));
+            callback(std::make_exception_ptr(std::runtime_error("send error")));
         });
 
     auto connection = create_connection(websocket_client, writer, trace_level::errors);
@@ -313,9 +313,9 @@ TEST(connection_impl_start, start_fails_if_negotiate_request_fails)
     });
 
     auto websocket_client = std::make_shared<test_websocket_client>();
-    websocket_client->set_receive_function([]()->pplx::task<std::string>
+    websocket_client->set_receive_function([](const std::function<void(const std::exception_ptr&, const std::string&)>& completion_callback)
     {
-        return pplx::task_from_result(std::string("{ }\x1e"));
+        completion_callback(nullptr, "{ }\x1e");
     });
 
     auto connection =
@@ -349,9 +349,17 @@ TEST(connection_impl_start, start_fails_if_negotiate_response_has_error)
 
     pplx::task_completion_event<void> tce;
     auto websocket_client = std::make_shared<test_websocket_client>();
-    websocket_client->set_connect_function([tce](const std::string&) mutable
+    websocket_client->set_connect_function([tce](const std::string&, const std::function<void(const std::exception_ptr&)>& completion_callback) mutable
     {
-        return pplx::task<void>(tce);
+        try
+        {
+            pplx::task<void>(tce).get();
+            completion_callback(nullptr);
+        }
+        catch (...)
+        {
+            completion_callback(std::current_exception());
+        }
     });
 
     auto connection =
@@ -385,9 +393,17 @@ TEST(connection_impl_start, start_fails_if_negotiate_response_does_not_have_webs
 
     pplx::task_completion_event<void> tce;
     auto websocket_client = std::make_shared<test_websocket_client>();
-    websocket_client->set_connect_function([tce](const std::string&) mutable
+    websocket_client->set_connect_function([tce](const std::string&, const std::function<void(const std::exception_ptr&)> & completion_callback) mutable
     {
-        return pplx::task<void>(tce);
+        try
+        {
+            pplx::task<void>(tce).get();
+            completion_callback(nullptr);
+        }
+        catch (...)
+        {
+            completion_callback(std::current_exception());
+        }
     });
 
     auto connection =
@@ -421,9 +437,17 @@ TEST(connection_impl_start, start_fails_if_negotiate_response_does_not_have_tran
 
     pplx::task_completion_event<void> tce;
     auto websocket_client = std::make_shared<test_websocket_client>();
-    websocket_client->set_connect_function([tce](const std::string&) mutable
+    websocket_client->set_connect_function([tce](const std::string&, const std::function<void(const std::exception_ptr&)> & completion_callback) mutable
     {
-        return pplx::task<void>(tce);
+        try
+        {
+            pplx::task<void>(tce).get();
+            completion_callback(nullptr);
+        }
+        catch (...)
+        {
+            completion_callback(std::current_exception());
+        }
     });
 
     auto connection =
@@ -457,9 +481,17 @@ TEST(connection_impl_start, start_fails_if_negotiate_response_is_invalid)
 
     pplx::task_completion_event<void> tce;
     auto websocket_client = std::make_shared<test_websocket_client>();
-    websocket_client->set_connect_function([tce](const std::string&) mutable
+    websocket_client->set_connect_function([tce](const std::string&, const std::function<void(const std::exception_ptr&)> & completion_callback) mutable
     {
-        return pplx::task<void>(tce);
+        try
+        {
+            pplx::task<void>(tce).get();
+            completion_callback(nullptr);
+        }
+        catch (...)
+        {
+            completion_callback(std::current_exception());
+        }
     });
 
     auto connection =
@@ -503,10 +535,10 @@ TEST(connection_impl_start, negotiate_follows_redirect)
     auto websocket_client = std::make_shared<test_websocket_client>();
 
     std::string connectUrl;
-    websocket_client->set_connect_function([&connectUrl](const std::string& url)
+    websocket_client->set_connect_function([&connectUrl](const std::string& url, const std::function<void(const std::exception_ptr&)> & completion_callback) mutable
     {
         connectUrl = url;
-        return pplx::task_from_result();
+        completion_callback(nullptr);
     });
 
     auto connection =
@@ -550,10 +582,10 @@ TEST(connection_impl_start, negotiate_redirect_uses_accessToken)
     auto websocket_client = std::make_shared<test_websocket_client>();
 
     std::string connectUrl;
-    websocket_client->set_connect_function([&connectUrl](const std::string& url)
+    websocket_client->set_connect_function([&connectUrl](const std::string & url, const std::function<void(const std::exception_ptr&)> & completion_callback) mutable
     {
         connectUrl = url;
-        return pplx::task_from_result();
+        completion_callback(nullptr);
     });
 
     auto connection =
@@ -673,12 +705,12 @@ TEST(connection_impl_start, negotiate_redirect_uses_own_query_string)
     std::string query_string;
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_exception<std::string>(std::runtime_error("should not be invoked")); },
-        /* send function */ [](const std::string) { return pplx::task_from_exception<void>(std::runtime_error("should not be invoked"));  },
-        /* connect function */[&query_string](const std::string& url)
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked")), ""); },
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)> & callback) { callback(std::make_exception_ptr(std::runtime_error("should not be invoked")));  },
+        /* connect function */[&query_string](const std::string& url, const std::function<void(const std::exception_ptr&)> & callback)
     {
         query_string = url.substr(url.find('?') + 1);
-        return pplx::task_from_exception<void>(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed")));
+        callback(std::make_exception_ptr(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed"))));
     });
 
     auto web_request_factory = std::make_unique<test_web_request_factory>([](const std::string& url)
@@ -721,9 +753,17 @@ TEST(connection_impl_start, start_fails_if_connect_request_times_out)
 
     pplx::task_completion_event<void> tce;
     auto websocket_client = std::make_shared<test_websocket_client>();
-    websocket_client->set_connect_function([tce](const std::string&) mutable
+    websocket_client->set_connect_function([tce](const std::string&, const std::function<void(const std::exception_ptr&)> & completion_callback) mutable
     {
-        return pplx::task<void>(tce);
+        try
+        {
+            pplx::task<void>(tce).get();
+            completion_callback(nullptr);
+        }
+        catch (...)
+        {
+            completion_callback(std::current_exception());
+        }
     });
 
     auto connection =
@@ -746,10 +786,10 @@ TEST(connection_impl_process_response, process_response_logs_messages)
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
     auto wait_receive = std::make_shared<event>();
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [wait_receive]()
+        /* receive function */ [wait_receive](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         {
             wait_receive->set();
-            return pplx::task_from_result(std::string("{ }"));
+            callback(nullptr, "{ }");
         });
     auto connection = create_connection(websocket_client, writer, trace_level::messages);
 
@@ -769,11 +809,11 @@ TEST(connection_impl_send, message_sent)
     std::string actual_message;
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); },
-        /* send function */ [&actual_message](const std::string& message)
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, "{ }\x1e"); },
+        /* send function */ [&actual_message](const std::string & message, const std::function<void(const std::exception_ptr&)> & callback)
     {
         actual_message = message;
-        return pplx::task_from_result();
+        callback(nullptr);
     });
 
     auto connection = create_connection(websocket_client);
@@ -809,13 +849,13 @@ TEST(connection_impl_send, exceptions_from_send_logged_and_propagated)
 {
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []()
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         {
-            return pplx::task_from_result(std::string("{}"));
+            callback(nullptr, "{}");
         },
-        /* send function */ [](const std::string&)
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)> & callback)
         {
-            return pplx::task_from_exception<void>(std::runtime_error("error"));
+            callback(std::make_exception_ptr(std::runtime_error("error")));
         });
 
     auto connection = create_connection(websocket_client, writer, trace_level::errors);
@@ -846,7 +886,7 @@ TEST(connection_impl_set_message_received, callback_invoked_when_message_receive
 {
     int call_number = -1;
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [call_number]()
+        /* receive function */ [call_number](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         mutable {
         std::string responses[]
         {
@@ -857,7 +897,7 @@ TEST(connection_impl_set_message_received, callback_invoked_when_message_receive
 
         call_number = std::min(call_number + 1, 2);
 
-        return pplx::task_from_result(responses[call_number]);
+        callback(nullptr, responses[call_number]);
     });
 
     auto connection = create_connection(websocket_client);
@@ -889,7 +929,7 @@ TEST(connection_impl_set_message_received, exception_from_callback_caught_and_lo
 {
     int call_number = -1;
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [call_number]()
+        /* receive function */ [call_number](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         mutable {
         std::string responses[]
         {
@@ -900,7 +940,7 @@ TEST(connection_impl_set_message_received, exception_from_callback_caught_and_lo
 
         call_number = std::min(call_number + 1, 2);
 
-        return pplx::task_from_result(responses[call_number]);
+        callback(nullptr, responses[call_number]);
     });
 
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
@@ -935,7 +975,7 @@ TEST(connection_impl_set_message_received, non_std_exception_from_callback_caugh
 {
     int call_number = -1;
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [call_number]()
+        /* receive function */ [call_number](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         mutable {
         std::string responses[]
         {
@@ -946,7 +986,7 @@ TEST(connection_impl_set_message_received, non_std_exception_from_callback_caugh
 
         call_number = std::min(call_number + 1, 2);
 
-        return pplx::task_from_result(responses[call_number]);
+        callback(nullptr, responses[call_number]);
     });
 
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
@@ -980,7 +1020,7 @@ TEST(connection_impl_set_message_received, non_std_exception_from_callback_caugh
 void can_be_set_only_in_disconnected_state(std::function<void(connection_impl *)> callback, const char* expected_exception_message)
 {
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, "{ }\x1e"); });
     auto connection = create_connection(websocket_client);
 
     connection->start().get();
@@ -1030,15 +1070,13 @@ TEST(connection_impl_stop, stopping_disconnecting_connection_returns_cancelled_t
     auto writer = std::shared_ptr<log_writer>{std::make_shared<memory_log_writer>()};
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); },
-        /* send function */ [](const std::string){ return pplx::task_from_exception<void>(std::runtime_error("should not be invoked")); },
-        /* connect function */ [&close_event](const std::string&) { return pplx::task_from_result(); },
-        /* close function */ [&close_event]()
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, "{ }\x1e"); },
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)> & callback){ callback(std::make_exception_ptr(std::runtime_error("should not be invoked"))); },
+        /* connect function */ [&close_event](const std::string&, const std::function<void(const std::exception_ptr&)> & callback) { callback(nullptr); },
+        /* close function */ [&close_event](const std::function<void(const std::exception_ptr&)> & callback)
         {
-            return pplx::create_task([&close_event]()
-            {
-                close_event.wait();
-            });
+            close_event.wait();
+            callback(nullptr);
         });
 
     auto connection = create_connection(websocket_client, writer, trace_level::state_changes);
@@ -1072,7 +1110,7 @@ TEST(connection_impl_stop, can_start_and_stop_connection)
     auto writer = std::shared_ptr<log_writer>{std::make_shared<memory_log_writer>()};
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, "{ }\x1e"); });
     auto connection = create_connection(websocket_client, writer, trace_level::state_changes);
 
     connection->start()
@@ -1095,7 +1133,7 @@ TEST(connection_impl_stop, can_start_and_stop_connection_multiple_times)
 
     {
         auto websocket_client = create_test_websocket_client(
-            /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+            /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, std::string("{ }\x1e")); });
         auto connection = create_connection(websocket_client, writer, trace_level::state_changes);
 
         connection->start()
@@ -1137,10 +1175,10 @@ TEST(connection_impl_stop, dtor_stops_the_connection)
 
     {
         auto websocket_client = create_test_websocket_client(
-            /* receive function */ []() 
+            /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                return pplx::task_from_result(std::string("{ }\x1e"));
+                callback(nullptr, "{ }\x1e");
             });
         auto connection = create_connection(websocket_client, writer, trace_level::state_changes);
 
@@ -1170,10 +1208,10 @@ TEST(connection_impl_stop, stop_cancels_ongoing_start_request)
     auto disconnect_completed_event = std::make_shared<event>();
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [disconnect_completed_event]()
+        /* receive function */ [disconnect_completed_event](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         {
             disconnect_completed_event->wait();
-            return pplx::task_from_result(std::string("{ }\x1e"));
+            callback(nullptr, "{ }\x1e");
         });
 
     auto writer = std::shared_ptr<log_writer>{std::make_shared<memory_log_writer>()};
@@ -1218,9 +1256,9 @@ TEST(connection_impl_stop, ongoing_start_request_canceled_if_connection_stopped_
         return std::unique_ptr<web_request>(new web_request_stub((unsigned short)200, "OK", response_body));
     });
 
-    auto websocket_client = create_test_websocket_client(/*receive function*/ []()
+    auto websocket_client = create_test_websocket_client(/*receive function*/ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
     {
-        return pplx::task_from_result<std::string>("{}");
+        callback(nullptr, "{}");
     });
 
     auto writer = std::shared_ptr<log_writer>{std::make_shared<memory_log_writer>()};
@@ -1253,7 +1291,7 @@ TEST(connection_impl_stop, ongoing_start_request_canceled_if_connection_stopped_
 TEST(connection_impl_stop, stop_invokes_disconnected_callback)
 {
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, std::string("{ }\x1e")); });
     auto connection = create_connection(websocket_client);
 
     auto disconnected_invoked = false;
@@ -1274,7 +1312,7 @@ TEST(connection_impl_stop, std_exception_for_disconnected_callback_caught_and_lo
 
     int call_number = -1;
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [call_number]()
+        /* receive function */ [call_number](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         mutable {
             std::string responses[]
             {
@@ -1284,7 +1322,7 @@ TEST(connection_impl_stop, std_exception_for_disconnected_callback_caught_and_lo
 
             call_number = std::min(call_number + 1, 1);
 
-            return pplx::task_from_result(responses[call_number]);
+            callback(nullptr, responses[call_number]);
         });
     auto connection = create_connection(websocket_client, writer, trace_level::errors);
 
@@ -1307,7 +1345,7 @@ TEST(connection_impl_stop, exception_for_disconnected_callback_caught_and_logged
 
     int call_number = -1;
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [call_number]()
+        /* receive function */ [call_number](const std::function<void(const std::exception_ptr&, const std::string&)> & callback)
         mutable {
             std::string responses[]
             {
@@ -1317,7 +1355,7 @@ TEST(connection_impl_stop, exception_for_disconnected_callback_caught_and_logged
 
             call_number = std::min(call_number + 1, 1);
 
-            return pplx::task_from_result(responses[call_number]);
+            callback(nullptr, responses[call_number]);
         });
     auto connection = create_connection(websocket_client, writer, trace_level::errors);
 
@@ -1358,7 +1396,7 @@ TEST(connection_impl_config, custom_headers_set_in_requests)
     });
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, "{ }\x1e"); });
 
     auto connection =
         connection_impl::create(create_uri(), trace_level::state_changes,
@@ -1393,7 +1431,7 @@ TEST(connection_impl_change_state, change_state_logs)
 {
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ []() { return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback) { callback(nullptr, "{ }\x1e"); });
     auto connection = create_connection(websocket_client, writer, trace_level::state_changes);
 
     connection->start().wait();
@@ -1410,11 +1448,11 @@ TEST(connection_id, connection_id_is_set_if_start_fails_but_negotiate_request_su
     std::shared_ptr<log_writer> writer(std::make_shared<memory_log_writer>());
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [](){ return pplx::task_from_exception<std::string>(std::runtime_error("should not be invoked")); },
-        /* send function */ [](const std::string){ return pplx::task_from_exception<void>(std::runtime_error("should not be invoked"));  },
-        /* connect function */[](const std::string&)
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback){ callback(std::make_exception_ptr(std::runtime_error("should not be invoked")), ""); },
+        /* send function */ [](const std::string &, const std::function<void(const std::exception_ptr&)> & callback){ callback(std::make_exception_ptr(std::runtime_error("should not be invoked")));  },
+        /* connect function */[](const std::string&, const std::function<void(const std::exception_ptr&)> & callback)
         {
-            return pplx::task_from_exception<void>(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed")));
+            callback(std::make_exception_ptr(web::websockets::client::websocket_exception(_XPLATSTR("connecting failed"))));
         });
 
     auto connection = create_connection(websocket_client, writer, trace_level::errors);
@@ -1443,7 +1481,7 @@ TEST(connection_id, can_get_connection_id_when_connection_in_connected_state)
     auto writer = std::shared_ptr<log_writer>{ std::make_shared<memory_log_writer>() };
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [](){ return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback){ callback(nullptr, "{ }\x1e"); });
     auto connection = create_connection(websocket_client, writer, trace_level::state_changes);
 
     std::string connection_id;
@@ -1462,7 +1500,7 @@ TEST(connection_id, can_get_connection_id_after_connection_has_stopped)
     auto writer = std::shared_ptr<log_writer>{ std::make_shared<memory_log_writer>() };
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [](){ return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback){ callback(nullptr, "{ }\x1e"); });
     auto connection = create_connection(websocket_client, writer, trace_level::state_changes);
 
     connection->start()
@@ -1481,7 +1519,7 @@ TEST(connection_id, connection_id_reset_when_starting_connection)
     auto writer = std::shared_ptr<log_writer>{ std::make_shared<memory_log_writer>() };
 
     auto websocket_client = create_test_websocket_client(
-        /* receive function */ [](){ return pplx::task_from_result(std::string("{ }\x1e")); });
+        /* receive function */ [](const std::function<void(const std::exception_ptr&, const std::string&)> & callback){ callback(nullptr, "{ }\x1e"); });
 
     auto web_request_factory = std::make_unique<test_web_request_factory>([&fail_http_requests](const std::string &url) -> std::unique_ptr<web_request>
     {

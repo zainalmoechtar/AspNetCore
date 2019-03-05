@@ -137,12 +137,14 @@ namespace signalr
 
         auto logger = m_logger;
 
-        websocket_client->close()
-            .then([logger, completion_callback](pplx::task<void> close_task)
+        websocket_client->close([logger, completion_callback](const std::exception_ptr& exception)
             mutable {
                 try
                 {
-                    close_task.get();
+                    if (exception != nullptr)
+                    {
+                        std::rethrow_exception(exception);
+                    }
                     completion_callback(nullptr);
                 }
                 catch (const std::exception &e)
@@ -201,10 +203,9 @@ namespace signalr
                         std::string("[websocket transport] error receiving response from websocket: ")
                         .append(e.what()));
 
-                    websocket_client->close()
-                        .then([](pplx::task<void> task)
+                    websocket_client->close([](const std::exception_ptr& exception)
                     {
-                        try { task.get(); }
+                        try { std::rethrow_exception(exception); }
                         catch (...) {}
                     });
 
@@ -222,10 +223,9 @@ namespace signalr
                         trace_level::errors,
                         std::string("[websocket transport] unknown error occurred when receiving response from websocket"));
 
-                    websocket_client->close()
-                        .then([](pplx::task<void> task)
+                    websocket_client->close([](const std::exception_ptr& exception)
                     {
-                        try { task.get(); }
+                        try { std::rethrow_exception(exception); }
                         catch (...) {}
                     });
 

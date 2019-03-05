@@ -16,7 +16,7 @@ namespace signalr
 
         virtual void receive(const std::function<void(const std::exception_ptr&, const std::string&)>& completion_callback) = 0;
 
-        virtual pplx::task<void> close() = 0;
+        virtual void close(const std::function<void(const std::exception_ptr&)>& completion_callback) = 0;
 
         virtual ~websocket_client() {};
     };

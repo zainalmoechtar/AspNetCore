@@ -31,9 +31,9 @@ namespace signalr
                     task.get();
                     completion_callback(nullptr);
                 }
-                catch (const std::exception& ex)
+                catch (...)
                 {
-                    completion_callback(std::make_exception_ptr(ex));
+                    completion_callback(std::current_exception());
                 }
             });
     }
@@ -50,9 +50,9 @@ namespace signalr
                     task.get();
                     completion_callback(nullptr);
                 }
-                catch (const std::exception & ex)
+                catch (...)
                 {
-                    completion_callback(std::make_exception_ptr(ex));
+                    completion_callback(std::current_exception());
                 }
             });
     }
@@ -78,8 +78,20 @@ namespace signalr
             });
     }
 
-    pplx::task<void> default_websocket_client::close()
+    void default_websocket_client::close(const std::function<void(const std::exception_ptr&)>& completion_callback)
     {
-        return m_underlying_client.close();
+        m_underlying_client.close()
+            .then([completion_callback](pplx::task<void> task)
+            {
+                try
+                {
+                    task.get();
+                    completion_callback(nullptr);
+                }
+                catch (...)
+                {
+                    completion_callback(std::current_exception());
+                }
+            });
     }
 }

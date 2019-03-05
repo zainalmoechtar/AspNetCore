@@ -20,7 +20,7 @@ namespace signalr
 
         void receive(const std::function<void(const std::exception_ptr&, const std::string&)>& completion_callback) override;
 
-        pplx::task<void> close() override;
+        void close(const std::function<void(const std::exception_ptr&)>& completion_callback) override;
 
     private:
         web::websockets::client::websocket_client m_underlying_client;

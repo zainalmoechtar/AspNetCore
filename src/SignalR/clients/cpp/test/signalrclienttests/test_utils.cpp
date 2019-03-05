@@ -17,10 +17,10 @@ std::string remove_date_from_log_entry(const std::string &log_entry)
     return log_entry.substr(date_end_index + 1);
 }
 
-std::shared_ptr<websocket_client> create_test_websocket_client(std::function<pplx::task<std::string>()> receive_function,
-    std::function<pplx::task<void>(const std::string& msg)> send_function,
-    std::function<pplx::task<void>(const std::string& url)> connect_function,
-    std::function<pplx::task<void>()> close_function)
+std::shared_ptr<websocket_client> create_test_websocket_client(const std::function<void(const std::function<void(const std::exception_ptr&, const std::string&)>& completion_callback)>& receive_function,
+    const std::function<void(const std::string& msg, const std::function<void(const std::exception_ptr&)>& completion_callback)>& send_function,
+    const std::function<void(const std::string& url, const std::function<void(const std::exception_ptr&)>& completion_callback)>& connect_function,
+    const std::function<void(const std::function<void(const std::exception_ptr&)>& completion_callback)>& close_function)
 {
     auto websocket_client = std::make_shared<test_websocket_client>();
     websocket_client->set_receive_function(receive_function);
