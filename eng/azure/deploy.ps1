@@ -77,5 +77,14 @@ Write-Host "Using resource group '$($ResourceGroup.ResourceGroupName)'."
 # Deploy the template
 Write-Host "Deploying template. This may take a while. You can see status on the Azure Portal at:"
 Write-Host "https://ms.portal.azure.com/#resource$($ResourceGroup.ResourceId)/deployments"
+Write-Host "For Windows machines, remember the 'adminPassword' MUST MEET THE FOLLOWING REQUIREMENTS:"
+Write-Host " * Must not match a list of certain common passwords."
+Write-Host " * 8-123 characters long."
+Write-Host " * 3 out of 4 of the following types of characters must be included:"
+Write-Host "   * Lower-case letters."
+Write-Host "   * Upper-case letters."
+Write-Host "   * Numbers."
+Write-Host "   * Special Characters."
+
 $Deployment = New-AzResourceGroupDeployment -DefaultProfile $AzContext -TemplateUri $Template -ResourceGroupName $ResourceGroup.ResourceGroupName -TemplateParameterObject @{"vmName" = $MachineName}
 
