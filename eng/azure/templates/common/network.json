@@ -38,6 +38,10 @@
     "nicId": {
       "type": "string",
       "value": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+    },
+    "fqdn": {
+      "type": "string",
+      "value": "[reference(concat('Microsoft.Network/publicIpAddresses/', variables('publicIpAddressName'))).dnsSettings.fqdn]"
     }
   },
   "resources": [

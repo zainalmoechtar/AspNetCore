@@ -75,7 +75,9 @@
   "variables": {
     "diagnosticsExtensionName": "Microsoft.Insights.VMDiagnosticsSettings",
     "aadLoginExtensionName": "AADLoginForWindows",
-    "networkTemplateUrl": "[uri(deployment().properties.templateLink.uri, 'common/network.json')]"
+    "osDiskName": "[concat(parameters('vmName'), '-os-disk')]",
+    "networkTemplateUrl": "[uri(deployment().properties.templateLink.uri, 'common/network.json')]",
+    "enableSshScriptUrl": "[uri(deployment().properties.templateLink.uri, 'scripts/Enable-SSHServer.ps1')]"
   },
   "resources": [
     {
@@ -115,6 +117,7 @@
         },
         "storageProfile": {
           "osDisk": {
+            "name": "[variables('osDiskName')]",
             "createOption": "fromImage",
             "managedDisk": {
               "storageAccountType": "[parameters('osDiskType')]"
@@ -173,12 +176,38 @@
         }
       },
       "tags": {}
+    },
+    {
+      "name": "[concat('enable-ssh-', parameters('vmName'))]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2018-06-01",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', parameters('vmName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.7",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "[variables('enableSshScriptUrl')]"
+          ],
+          "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File Enable-SSHServer.ps1"
+        }
+      },
+      "tags": {}
     }
   ],
   "outputs": {
     "adminUsername": {
       "type": "string",
       "value": "[parameters('adminUsername')]"
+    },
+    "hostname": {
+      "type": "string",
+      "value": "[reference('networkResources').outputs.fqdn.value]"
     }
   }
 }

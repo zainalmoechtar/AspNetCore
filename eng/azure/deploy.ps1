@@ -75,16 +75,18 @@ if (!$ResourceGroup) {
 Write-Host "Using resource group '$($ResourceGroup.ResourceGroupName)'."
 
 # Deploy the template
-Write-Host "Deploying template. This may take a while. You can see status on the Azure Portal at:"
-Write-Host "https://ms.portal.azure.com/#resource$($ResourceGroup.ResourceId)/deployments"
-Write-Host "For Windows machines, remember the 'adminPassword' MUST MEET THE FOLLOWING REQUIREMENTS:"
-Write-Host " * Must not match a list of certain common passwords."
-Write-Host " * 8-123 characters long."
-Write-Host " * 3 out of 4 of the following types of characters must be included:"
-Write-Host "   * Lower-case letters."
-Write-Host "   * Upper-case letters."
-Write-Host "   * Numbers."
-Write-Host "   * Special Characters."
+Write-Host -ForegroundColor Yellow "For Windows machines, remember the 'adminPassword' MUST MEET THE FOLLOWING REQUIREMENTS:"
+Write-Host -ForegroundColor Yellow " * Must not match a list of certain common passwords."
+Write-Host -ForegroundColor Yellow " * 8-123 characters long."
+Write-Host -ForegroundColor Yellow " * 3 out of 4 of the following types of characters must be included:"
+Write-Host -ForegroundColor Yellow "   * Lower-case letters."
+Write-Host -ForegroundColor Yellow "   * Upper-case letters."
+Write-Host -ForegroundColor Yellow "   * Numbers."
+Write-Host -ForegroundColor Yellow "   * Special Characters."
+Write-Host
+Write-Host "Deploying template. This may several minutes. You can see status on the Azure Portal at:"
+Write-Host -ForegroundColor Magenta "https://ms.portal.azure.com/#resource$($ResourceGroup.ResourceId)/deployments"
 
-$Deployment = New-AzResourceGroupDeployment -DefaultProfile $AzContext -TemplateUri $Template -ResourceGroupName $ResourceGroup.ResourceGroupName -TemplateParameterObject @{"vmName" = $MachineName}
+New-AzResourceGroupDeployment -DefaultProfile $AzContext -TemplateUri $Template -ResourceGroupName $ResourceGroup.ResourceGroupName -TemplateParameterObject @{"vmName" = $MachineName}
 
+Write-Host "Virtual Machine Deployed. Connecting and running initialization script."
