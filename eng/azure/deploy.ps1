@@ -87,6 +87,6 @@ Write-Host
 Write-Host "Deploying template. This may several minutes. You can see status on the Azure Portal at:"
 Write-Host -ForegroundColor Magenta "https://ms.portal.azure.com/#resource$($ResourceGroup.ResourceId)/deployments"
 
-New-AzResourceGroupDeployment -DefaultProfile $AzContext -TemplateUri $Template -ResourceGroupName $ResourceGroup.ResourceGroupName -TemplateParameterObject @{"vmName" = $MachineName}
+New-AzResourceGroupDeployment -DefaultProfile $AzContext -TemplateUri $Template -ResourceGroupName $ResourceGroup.ResourceGroupName -TemplateParameterObject @{"vmName" = $MachineName} -ErrorAction Stop
 
 Write-Host "Virtual Machine Deployed. Connecting and running initialization script."

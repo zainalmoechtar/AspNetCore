@@ -178,7 +178,7 @@
       "tags": {}
     },
     {
-      "name": "[concat('enable-ssh-', parameters('vmName'))]",
+      "name": "[concat(parameters('vmName'), '/script-enable-ssh')]",
       "type": "Microsoft.Compute/virtualMachines/extensions",
       "apiVersion": "2018-06-01",
       "location": "[parameters('location')]",
