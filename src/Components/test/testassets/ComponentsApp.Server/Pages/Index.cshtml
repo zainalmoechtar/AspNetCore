@@ -14,6 +14,15 @@
 <body>
     <app>@(await Html.RenderComponentAsync<App>())</app>
 
+    <script type="text/javascript">
+        window.Blazor = {
+            callbacks: {
+                configureSignalR: function (builder) {
+                    builder.configureLogging(0);
+                }
+            }
+        }
+    </script>
     <script src="_framework/components.server.js"></script>
 </body>
 </html>

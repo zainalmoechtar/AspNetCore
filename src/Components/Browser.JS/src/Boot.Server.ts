@@ -10,6 +10,7 @@ import { CircuitHandler } from './Platform/Circuits/CircuitHandler';
 import { AutoReconnectCircuitHandler } from './Platform/Circuits/AutoReconnectCircuitHandler';
 
 async function boot() {
+
   const circuitHandlers: CircuitHandler[] = [ new AutoReconnectCircuitHandler() ];
   window['Blazor'].circuitHandlers = circuitHandlers;
 
@@ -18,7 +19,9 @@ async function boot() {
     return loadEmbeddedResourcesAsync(bootConfig);
   });
 
-  const initialConnection = await initializeConnection(circuitHandlers);
+  // Set window['Blazor'].callbacks.configureSignalR before including the script to configure
+  // details of the hub connection.
+  const initialConnection = await initializeConnection(window['Blazor'].callbacks && window['Blazor'].callbacks.configureSignalR, circuitHandlers);
 
   // Ensure any embedded resources have been loaded before starting the app
   await embeddedResourcesPromise;
@@ -29,7 +32,8 @@ async function boot() {
   );
 
   window['Blazor'].reconnect = async () => {
-    const reconnection = await initializeConnection(circuitHandlers);
+    // Intentionally re-evaluating configureSignalR so it can change while the app is running.
+    const reconnection = await initializeConnection(window['Blazor'].callbacks && window['Blazor'].callbacks.configureSignalR, circuitHandlers);
     if (!(await reconnection.invoke<Boolean>('ConnectCircuit', circuitId))) {
       return false;
     }
@@ -41,12 +45,17 @@ async function boot() {
   circuitHandlers.forEach(h => h.onConnectionUp && h.onConnectionUp());
 }
 
-async function initializeConnection(circuitHandlers: CircuitHandler[]): Promise<signalR.HubConnection> {
-  const connection = new signalR.HubConnectionBuilder()
+async function initializeConnection(configureSignalR: (builder: signalR.HubConnectionBuilder) => void, circuitHandlers: CircuitHandler[]): Promise<signalR.HubConnection> {
+  const connectionBuilder = new signalR.HubConnectionBuilder()
     .withUrl('_blazor')
     .withHubProtocol(new MessagePackHubProtocol())
-    .configureLogging(signalR.LogLevel.Information)
-    .build();
+    .configureLogging(signalR.LogLevel.Information);
+
+  if (configureSignalR) {
+    configureSignalR(connectionBuilder);
+  }
+
+  const connection = connectionBuilder.build();
 
   connection.on('JS.BeginInvokeJS', DotNet.jsCallDispatcher.beginInvokeJSFromDotNet);
   connection.on('JS.RenderBatch', (browserRendererId: number, renderId: number, batchData: Uint8Array) => {
