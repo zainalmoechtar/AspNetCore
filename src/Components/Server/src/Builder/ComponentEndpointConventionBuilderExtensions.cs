@@ -19,7 +19,7 @@ namespace Microsoft.AspNetCore.Builder
         /// <param name="builder">The <see cref="IEndpointConventionBuilder"/>.</param>
         /// <param name="selector">A CSS selector that identifies the DOM element into which the <typeparamref name="TComponent"/> will be placed.</param>
         /// <returns>The <paramref name="builder"/>.</returns>
-        public static IEndpointConventionBuilder AddComponent<TComponent>(this IEndpointConventionBuilder builder, string selector)
+        public static TBuilder AddComponent<TBuilder, TComponent>(this TBuilder builder, string selector) where TBuilder : IEndpointConventionBuilder
         {
             if (builder == null)
             {
@@ -42,7 +42,7 @@ namespace Microsoft.AspNetCore.Builder
         /// <param name="componentType">The component type.</param>
         /// <param name="selector">The component selector in the DOM for the <paramref name="componentType"/>.</param>
         /// <returns>The <paramref name="builder"/>.</returns>
-        public static IEndpointConventionBuilder AddComponent(this IEndpointConventionBuilder builder, Type componentType, string selector)
+        public static TBuilder AddComponent<TBuilder>(this TBuilder builder, Type componentType, string selector) where TBuilder : IEndpointConventionBuilder
         {
             if (builder == null)
             {
